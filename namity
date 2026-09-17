@@ -1,0 +1,133 @@
+--!native
+--!optimize 2
+
+local secondscript = {}
+
+--# Aliases
+local Insert = table.insert
+local FindFirstChild, FindFirstChildOfClass = workspace.FindFirstChild, workspace.FindFirstChildOfClass
+local GetService = Game.GetService
+
+--# Services
+local Players            = GetService(Game, "Players")
+local LocalPlayer        = Players.LocalPlayer
+
+--# Helper Funcs (USELESS)
+local Suffixes = {
+    [""] = 0, ["K"] = 3, ["M"] = 6, ["B"] = 9, ["T"] = 12, ["Qa"] = 15, ["Qi"] = 18, 
+    ["Sx"] = 21, ["Sp"] = 24, ["Oc"] = 27, ["No"] = 30, ["Dc"] = 33, ["UDc"] = 36, 
+    ["DDc"] = 39, ["TDc"] = 42, ["QaDc"] = 45, ["QiDc"] = 48, ["SxDc"] = 51, 
+    ["SpDc"] = 54, ["OcDc"] = 57, ["NoDc"] = 60, ["Vg"] = 63, ["UVg"] = 66, 
+    ["DVg"] = 69, ["TVg"] = 72, ["QaVg"] = 75, ["QiVg"] = 78, ["SxVg"] = 81, 
+    ["SpVg"] = 84, ["OcVg"] = 87, ["NoVg"] = 90
+}
+
+local function ExpandNumber(Value)
+    if type(Value) == "number" then return Value end
+    if type(Value) ~= "string" then return Value end
+
+    Value = Value:gsub("%s+", "")
+    local Number, Suffix = Value:match("^([+-]?%d*%.?%d+)(.*)$")
+
+    if not Number then return Value end
+    local Multiplier = Suffixes[Suffix]
+    if Multiplier == nil then return Value end
+
+    return tonumber(Number) * 10 ^ Multiplier
+end
+
+--# Methods tied to the return object so your main script can see them
+function secondscript.GetUmaData(Tool)
+    local EntityGui = FindFirstChild(Tool, "EntityGUI", true)
+    if not EntityGui then return end
+    local Frame = EntityGui.Frame
+
+    return {
+        CashPerSec = Frame.CPSFrame.Label.Text,
+        Name = Frame.NameLabel.Text,
+    }
+end
+
+function secondscript.CacheAllUmaData()
+    local Character = LocalPlayer.Character
+    if not Character then return end
+    for _, Tool in LocalPlayer.Backpack:GetChildren() do
+        if Tool:GetAttribute("Mutation") and not Tool:GetAttribute("IsLuckyBlock") then
+            local Tung = FindFirstChildOfClass(Character, "Tool")
+            if Tung then
+                Tung.Parent = LocalPlayer.Backpack
+            end
+            Tool.Parent = Character
+        end
+    end
+    local Tung = FindFirstChildOfClass(Character, "Tool")
+    if Tung then
+        Tung.Parent = LocalPlayer.Backpack
+    end
+end
+
+function secondscript.GetAllUmaData()
+    local Datas = {}
+    local Character = LocalPlayer.Character
+    if not Character then return end
+
+    secondscript.CacheAllUmaData()
+
+    local Tool = FindFirstChildOfClass(Character, "Tool")
+    if Tool then
+        Datas[Tool] = secondscript.GetUmaData(Tool)
+    end
+    
+    for _, Tool in LocalPlayer.Backpack:GetChildren() do
+        if Tool:GetAttribute("Mutation") and not Tool:GetAttribute("IsLuckyBlock") then
+            if not Datas[Tool] then
+                Datas[Tool] = secondscript.GetUmaData(Tool)
+            end
+        end
+    end
+
+    return Datas
+end
+
+function secondscript.GetBestUmaData()
+    local Datas = {}
+    local Character = LocalPlayer.Character
+    if not Character then return end
+
+    secondscript.CacheAllUmaData()
+
+    local Tool = FindFirstChildOfClass(Character, "Tool")
+    if Tool then
+        Datas[Tool] = secondscript.GetUmaData(Tool)
+    end
+    
+    for _, Tool in LocalPlayer.Backpack:GetChildren() do
+        if Tool:GetAttribute("Mutation") and not Tool:GetAttribute("IsLuckyBlock") then
+            local Data = secondscript.GetUmaData(Tool)
+            if Data then
+                local BroFormattedMoney = Data.CashPerSec:gsub("^%$", ""):gsub("/s$", "")
+                local Money = ExpandNumber(BroFormattedMoney)
+
+                Datas[Tool] = Data
+                Data.Money = Money
+            end
+        end
+    end
+
+    local BestUmasTypeShi = {}
+
+    for Tool, Data in Datas do
+        Insert(BestUmasTypeShi, {
+            Tool = Tool,
+            Data = Data
+        })
+    end
+
+    table.sort(BestUmasTypeShi, function(A, B)
+        return A.Data.Money > B.Data.Money
+    end)
+
+    return BestUmasTypeShi
+end
+
+return secondscript
